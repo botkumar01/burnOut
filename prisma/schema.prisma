@@ -1,0 +1,221 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───
+
+enum Role {
+  worker
+  leader
+}
+
+enum Difficulty {
+  easy
+  medium
+  hard
+}
+
+enum AlertType {
+  burnout_risk
+  high_screen_time
+  consecutive_hard
+  no_breaks
+  high_stress
+  help_signal
+  high_debt
+}
+
+enum Severity {
+  safe
+  warning
+  high_risk
+}
+
+enum AlertStatus {
+  pending
+  acknowledged
+  resolved
+}
+
+enum ChannelType {
+  direct
+  team
+  announcement
+}
+
+enum DebtTrend {
+  increasing
+  decreasing
+  stable
+}
+
+// ─── Models ───
+
+model User {
+  id        String   @id
+  name      String
+  email     String   @unique
+  role      Role
+  avatar    String
+  teamId    String
+  createdAt DateTime @default(now())
+
+  workLogs           WorkLog[]
+  assignmentsAsWorker Assignment[]       @relation("WorkerAssignments")
+  assignmentsAsLeader Assignment[]       @relation("LeaderAssignments")
+  surveys            Survey[]
+  helpSignals        HelpSignal[]
+  alerts             Alert[]
+  channelParticipants ChannelParticipant[]
+  messagesSent       Message[]
+  messageReads       MessageRead[]
+  burnoutDebtScore   BurnoutDebtScore?
+}
+
+model WorkLog {
+  id                   String   @id @default(uuid())
+  workerId             String
+  date                 String
+  screenTimeHours      Float
+  tasksCompleted       Int
+  taskDescriptions     String[]
+  breaksTaken          Int
+  breakDurationMinutes Int
+  sessionStartTime     String
+  sessionEndTime       String
+  longestSessionMinutes Int
+  createdAt            DateTime @default(now())
+
+  worker User @relation(fields: [workerId], references: [id])
+
+  @@unique([workerId, date])
+}
+
+model Assignment {
+  id                    String      @id @default(uuid())
+  workerId              String
+  assignedBy            String
+  date                  String
+  difficulty            Difficulty
+  taskTitle             String
+  taskDescription       String
+  recommendedDifficulty Difficulty?
+  wasOverride           Boolean     @default(false)
+  overrideReason        String?
+  createdAt             DateTime    @default(now())
+
+  worker  User @relation("WorkerAssignments", fields: [workerId], references: [id])
+  assigner User @relation("LeaderAssignments", fields: [assignedBy], references: [id])
+
+  @@unique([workerId, date])
+}
+
+model Survey {
+  id              String   @id @default(uuid())
+  workerId        String
+  weekDate        String
+  stressLevel     Int
+  energyLevel     Int
+  workLifeBalance Int
+  notes           String   @default("")
+  createdAt       DateTime @default(now())
+
+  worker User @relation(fields: [workerId], references: [id])
+}
+
+model HelpSignal {
+  id           String   @id @default(uuid())
+  workerId     String
+  message      String
+  timestamp    DateTime @default(now())
+  readByLeader Boolean  @default(false)
+  readAt       DateTime?
+
+  worker User @relation(fields: [workerId], references: [id])
+}
+
+model Alert {
+  id               String      @id @default(uuid())
+  workerId         String
+  type             AlertType
+  severity         Severity
+  message          String
+  details          String
+  status           AlertStatus @default(pending)
+  createdAt        DateTime    @default(now())
+  acknowledgedAt   DateTime?
+  resolvedAt       DateTime?
+  tlExplanation    String?
+  correctiveAction String?
+
+  worker User @relation(fields: [workerId], references: [id])
+}
+
+model Channel {
+  id            String      @id @default(uuid())
+  name          String
+  type          ChannelType
+  createdAt     DateTime    @default(now())
+  lastMessageAt DateTime    @default(now())
+
+  participants ChannelParticipant[]
+  messages     Message[]
+}
+
+model ChannelParticipant {
+  channelId String
+  userId    String
+
+  channel Channel @relation(fields: [channelId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@id([channelId, userId])
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  channelId String
+  senderId  String
+  content   String
+  timestamp DateTime @default(now())
+
+  channel Channel       @relation(fields: [channelId], references: [id])
+  sender  User          @relation(fields: [senderId], references: [id])
+  readBy  MessageRead[]
+}
+
+model MessageRead {
+  messageId String
+  userId    String
+
+  message Message @relation(fields: [messageId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@id([messageId, userId])
+}
+
+model BurnoutDebtScore {
+  workerId    String    @id
+  currentDebt Int
+  trend       DebtTrend
+  lastUpdated DateTime  @default(now())
+
+  worker  User                 @relation(fields: [workerId], references: [id])
+  history BurnoutDebtHistory[]
+}
+
+model BurnoutDebtHistory {
+  id       String @id @default(uuid())
+  workerId String
+  date     String
+  score    Int
+
+  debtScore BurnoutDebtScore @relation(fields: [workerId], references: [workerId])
+
+  @@unique([workerId, date])
+}
