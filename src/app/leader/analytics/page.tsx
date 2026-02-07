@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { BarChart3, TrendingUp, Brain, Activity } from 'lucide-react';
 import {
-  LineChart, Line, BarChart, Bar, AreaChart, Area,
+  LineChart, Line, BarChart, Bar, AreaChart, Area, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 
@@ -51,6 +51,12 @@ export default function AnalyticsPage() {
   }, [user]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Auto-refresh every 10 seconds for near real-time updates
+  useEffect(() => {
+    const interval = setInterval(fetchData, 10000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
 
   // ── Build chart data ──
 
@@ -150,7 +156,7 @@ export default function AnalyticsPage() {
                 />
                 <Bar dataKey="count" radius={[6, 6, 0, 0]} name="Assignments">
                   {diffData.map((entry, i) => (
-                    <rect key={i} fill={entry.fill} />
+                    <Cell key={i} fill={entry.fill} />
                   ))}
                 </Bar>
               </BarChart>
@@ -199,7 +205,7 @@ export default function AnalyticsPage() {
                 />
                 <Bar dataKey="debt" radius={[0, 6, 6, 0]} name="Debt Score">
                   {debtByWorker.map((entry, i) => (
-                    <rect key={i} fill={entry.fill} />
+                    <Cell key={i} fill={entry.fill} />
                   ))}
                 </Bar>
               </BarChart>
